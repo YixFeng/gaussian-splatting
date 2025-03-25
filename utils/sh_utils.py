@@ -113,6 +113,7 @@ def eval_sh(deg, sh, dirs):
 
 def RGB2SH(rgb):
     return (rgb - 0.5) / C0
+# rgb是在0-1这个区间，所以减去0.5后，就变成了-0.5-0.5，然后除以C0，C0是球谐函数的直流分量
 
 def SH2RGB(sh):
     return sh * C0 + 0.5

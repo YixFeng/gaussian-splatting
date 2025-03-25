@@ -152,11 +152,11 @@ class GaussianModel:
         fused_color = RGB2SH(torch.tensor(np.asarray(pcd.colors)).float().cuda())
         features = torch.zeros((fused_color.shape[0], 3, (self.max_sh_degree + 1) ** 2)).float().cuda()
         features[:, :3, 0 ] = fused_color
-        features[:, 3:, 1:] = 0.0
+        features[:, :3, 1:] = 0.0 # FIXME: 疑似原先代码"3:"是错的
 
         print("Number of points at initialisation : ", fused_point_cloud.shape[0])
 
-        dist2 = torch.clamp_min(distCUDA2(torch.from_numpy(np.asarray(pcd.points)).float().cuda()), 0.0000001)
+        dist2 = torch.clamp_min(distCUDA2(torch.from_numpy(np.asarray(pcd.points)).float().cuda()), 0.0000001) # 不会有重合的椭球
         scales = torch.log(torch.sqrt(dist2))[...,None].repeat(1, 3)
         rots = torch.zeros((fused_point_cloud.shape[0], 4), device="cuda")
         rots[:, 0] = 1
@@ -203,7 +203,8 @@ class GaussianModel:
         self.xyz_scheduler_args = get_expon_lr_func(lr_init=training_args.position_lr_init*self.spatial_lr_scale,
                                                     lr_final=training_args.position_lr_final*self.spatial_lr_scale,
                                                     lr_delay_mult=training_args.position_lr_delay_mult,
-                                                    max_steps=training_args.position_lr_max_steps)
+                                                    max_steps=training_args.position_lr_max_steps) 
+        # 如果想拥有一个有一些局部全局变量的函数，可以考虑用闭包，定义一个函数把这些变量传进去，然后在这个函数里再定义一个函数，利用这些变量再返回这个函数
         
         self.exposure_scheduler_args = get_expon_lr_func(training_args.exposure_lr_init, training_args.exposure_lr_final,
                                                         lr_delay_steps=training_args.exposure_lr_delay_steps,
@@ -218,7 +219,7 @@ class GaussianModel:
 
         for param_group in self.optimizer.param_groups:
             if param_group["name"] == "xyz":
-                lr = self.xyz_scheduler_args(iteration)
+                lr = self.xyz_scheduler_args(iteration) # 这里就是一个闭包
                 param_group['lr'] = lr
                 return lr
 
@@ -415,7 +416,7 @@ class GaussianModel:
         selected_pts_mask = torch.logical_and(selected_pts_mask,
                                               torch.max(self.get_scaling, dim=1).values > self.percent_dense*scene_extent)
 
-        stds = self.get_scaling[selected_pts_mask].repeat(N,1)
+        stds = self.get_scaling[selected_pts_mask].repeat(N,1) # scale有三列，分别是x,y,z
         means =torch.zeros((stds.size(0), 3),device="cuda")
         samples = torch.normal(mean=means, std=stds)
         rots = build_rotation(self._rotation[selected_pts_mask]).repeat(N,1,1)
@@ -429,7 +430,8 @@ class GaussianModel:
 
         self.densification_postfix(new_xyz, new_features_dc, new_features_rest, new_opacity, new_scaling, new_rotation, new_tmp_radii)
 
-        prune_filter = torch.cat((selected_pts_mask, torch.zeros(N * selected_pts_mask.sum(), device="cuda", dtype=bool)))
+        prune_filter = torch.cat((selected_pts_mask, torch.zeros(N * selected_pts_mask.sum(), device="cuda", dtype=bool))) 
+        # torch.zeros(n * selected_pts_mask.sum())是指分裂后的点，两倍于被分裂的点，这些点是要加入的，因此在被删除的集合里，设置成False
         self.prune_points(prune_filter)
 
     def densify_and_clone(self, grads, grad_threshold, scene_extent):
