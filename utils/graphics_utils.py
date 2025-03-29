@@ -61,6 +61,8 @@ def getProjectionMatrix(znear, zfar, fovX, fovY):
 
     z_sign = 1.0
 
+    # NDC (Normalized Device Coordinate) 坐标系 https://zhuanlan.zhihu.com/p/628675070
+    # 在这个博客中的陈述是，NDC坐标系中，x、y、z的取值范围都是[-1, 1]，但是我感觉这里的推导z的取值范围更像是[0, 1]
     P[0, 0] = 2.0 * znear / (right - left)
     P[1, 1] = 2.0 * znear / (top - bottom)
     P[0, 2] = (right + left) / (right - left)
